@@ -27,7 +27,11 @@ const Dashboard = () => {
     const [isSavingSchedule, setIsSavingSchedule] = useState(false);
     const [allBarbers, setAllBarbers] = useState([]);
     const [isAdmin, setIsAdmin] = useState(false)
-
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchType, setSearchType] = useState('name'); // Poate fi 'name', 'phone' sau 'email'
+    const [searchResults, setSearchResults] = useState(null); // null = nu se caută nimic
+    const [isSearching, setIsSearching] = useState(false);
+    const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
 
     // TRANSFORMARE PENTRU UPGRADE RANGE SLIDER
 
@@ -46,20 +50,49 @@ const minutesToTime = (totalMinutes) => {
 
     // PROGRAMUL FRIZERILOR
 
-    const fetchWeeklySchedule = useCallback(async () => {
+   const fetchWeeklySchedule = useCallback(async () => {
+    setIsLoadingSchedule(true);
+    
+    // Generăm programul standard pe care îl vom folosi mereu dacă ceva nu merge
+    const defaultSchedule = [
+        { dayOfWeek: "MONDAY", isWorkingDay: true, startTime: "09:00", endTime: "18:00" },
+        { dayOfWeek: "TUESDAY", isWorkingDay: true, startTime: "09:00", endTime: "18:00" },
+        { dayOfWeek: "WEDNESDAY", isWorkingDay: true, startTime: "09:00", endTime: "18:00" },
+        { dayOfWeek: "THURSDAY", isWorkingDay: true, startTime: "09:00", endTime: "18:00" },
+        { dayOfWeek: "FRIDAY", isWorkingDay: true, startTime: "09:00", endTime: "18:00" },
+        { dayOfWeek: "SATURDAY", isWorkingDay: false, startTime: "09:00", endTime: "14:00" },
+        { dayOfWeek: "SUNDAY", isWorkingDay: false, startTime: "09:00", endTime: "14:00" }
+    ];
+
     try {
-        const res = await fetch('http://192.168.1.132:8080/dashboard/api/dashboard/schedule', { 
+        // ATENȚIE: Verifică dacă acest URL este cel corect! 
+        // Înainte aveai '/dashboard/api/dashboard/schedule' care s-ar putea să fi fost duplicat
+        const res = await fetch('http://192.168.1.32:8080/api/dashboard/schedule', { 
             credentials: 'include' 
         });
 
+        // Dacă backend-ul zice "Eroare", aruncăm eroarea ca să fim prinși de "catch"
+        if (!res.ok) throw new Error("Nu s-a găsit program, sau sesiune expirată.");
+
         const data = await res.json();
-        // Sortăm zilele să înceapă cu Luni (MONDAY)
-        const sorted = data.dailySchedules.sort((a, b) => {
-            const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
-            return days.indexOf(a.dayOfWeek) - days.indexOf(b.dayOfWeek);
-        });
-        setWeeklySchedule(sorted);
-    } catch (err) { console.error("Eroare încărcare program:", err); }
+        const schedulesArray = data.dailySchedules || data; 
+
+        if (!schedulesArray || schedulesArray.length === 0) {
+            setWeeklySchedule(defaultSchedule); // Dacă e gol, punem programul de bază
+        } else {
+            const sorted = schedulesArray.sort((a, b) => {
+                const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
+                return days.indexOf(a.dayOfWeek) - days.indexOf(b.dayOfWeek);
+            });
+            setWeeklySchedule(sorted);
+        }
+    } catch (err) { 
+        console.error("A picat fetch-ul, aplicăm programul default. Motiv:", err); 
+        // MAGIC FIX: Chiar dacă serverul dă eroare, noi AFIȘĂM programul ca să îl poți salva!
+        setWeeklySchedule(defaultSchedule);
+    } finally {
+        setIsLoadingSchedule(false);
+    }
 }, []);
 
 // Apelăm fetch când tab-ul devine activ
@@ -94,7 +127,7 @@ const copyMondayToAll = () => {
 const saveSchedule = async () => {
     setIsSavingSchedule(true);
     try {
-        const res = await fetch('http://192.168.1.132:8080/dashboard/api/dashboard/schedule/save', {
+        const res = await fetch('http://192.168.1.32:8080/dashboard/api/dashboard/schedule/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dailySchedules: weeklySchedule }),
@@ -112,20 +145,25 @@ const saveSchedule = async () => {
 
     // 1. Fetch Lista Frizeri (Doar dacă ești pe tab-ul Team)
 const fetchBarbers = useCallback(async () => {
-    try {
-        const res = await fetch('http://192.168.1.132:8080/api/admin/barbers', {
-            credentials: 'include'
-        });
-        if (res.ok) {
+        try {
+            const res = await fetch('http://192.168.1.32:8080/api/admin/barbers', {
+                credentials: 'include'
+            });
+            
+            if (!res.ok) {
+                if (res.status === 403) {
+                    console.error("Nu ai drepturi de ADMIN pentru a vedea echipa.");
+                }
+                throw new Error(`Eroare de la server: ${res.status}`);
+            }
+
             const data = await res.json();
             setAllBarbers(data);
-            // Opțional: Aici poți verifica și dacă userul curent are rol de ADMIN
-            // setIsAdmin(true); 
+        } catch (err) {
+            console.error("Eroare la încărcarea echipei:", err);
+            setAllBarbers([]); // Prevenim blocarea
         }
-    } catch (err) {
-        console.error("Eroare la încărcarea echipei:", err);
-    }
-}, []);
+    }, []);
 
 // 2. Funcția de Toggle (Switch ON/OFF)
 const handleToggleBarber = async (id, currentStatus) => {
@@ -136,7 +174,7 @@ const handleToggleBarber = async (id, currentStatus) => {
     setAllBarbers(updatedBarbers);
 
     try {
-        const res = await fetch(`http://192.168.1.132:8080/api/admin/barbers/toggle/${id}`, {
+        const res = await fetch(`http://192.168.1.32:8080/api/admin/barbers/toggle/${id}`, {
             method: 'PATCH', // Sau POST, depinde cum ai definit în Java (ai pus @PatchMapping)
             credentials: 'include'
         });
@@ -162,7 +200,7 @@ useEffect(() => {
     // 1. Agenda Zilei
     const fetchAgendaData = useCallback(async (date) => {
         try {
-            const res = await fetch(`http://192.168.1.132:8080/dashboard/appointments-by-date?date=${date}`, {
+            const res = await fetch(`http://192.168.1.32:8080/dashboard/appointments-by-date?date=${date}`, {
                 credentials: 'include'
             });
             const data = await res.json();
@@ -173,7 +211,7 @@ useEffect(() => {
     // 2. Următorul Client (Focus)
     const fetchNextClient = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.132:8080/dashboard/next-appointment-data', {
+            const res = await fetch('http://192.168.1.32:8080/dashboard/next-appointment-data', {
                 credentials: 'include'
             });
             if (res.status === 200) {
@@ -186,11 +224,20 @@ useEffect(() => {
     // 3. Management Servicii
     const fetchMyServices = useCallback(async () => {
         try {
-            // Notă: Folosim endpoint-ul de API pentru a lua lista de servicii
-            const res = await fetch('http://192.168.1.132:8080/api/services', { credentials: 'include' });
+            const res = await fetch('http://192.168.1.32:8080/api/services', { 
+                credentials: 'include' 
+            });
+            
+            if (!res.ok) {
+                throw new Error(`Eroare de la server: ${res.status}`);
+            }
+            
             const data = await res.json();
             setMyServices(data);
-        } catch (err) { console.error("Eroare încărcare servicii:", err); }
+        } catch (err) { 
+            console.error("Eroare încărcare servicii:", err); 
+            setMyServices([]); // Prevenim blocarea ecranului punând o listă goală
+        }
     }, []);
 
     // Controlul apelurilor de date în funcție de tab-ul activ
@@ -206,11 +253,46 @@ useEffect(() => {
 
     // --- HANDLERS (ACȚIUNI) ---
 
+    // Adaugă această funcție în zona de HANDLERS
+const handleSearch = async (e) => {
+    e.preventDefault();
+    if (!searchTerm.trim()) {
+        setSearchResults(null); // Resetează căutarea dacă input-ul e gol
+        return;
+    }
+    
+    setIsSearching(true);
+    try {
+        // Construim query-ul pe baza selecției
+        const queryParam = `${searchType}=${encodeURIComponent(searchTerm)}`;
+        
+        const res = await fetch(`http://192.168.1.32:8080/api/appointments/search?${queryParam}`, {
+            credentials: 'include'
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            setSearchResults(data);
+        }
+    } catch (err) {
+        alert("Eroare la efectuarea căutării.");
+    } finally {
+        setIsSearching(false);
+    }
+};
+
+const clearSearch = () => {
+    setSearchTerm('');
+    setSearchResults(null);
+};
+
+
+
     // Schimbare Status Programare
     const updateStatus = async (id, action) => {
         if (!window.confirm(`Sigur vrei să marchezi programarea ca ${action}?`)) return;
         try {
-            const res = await fetch(`http://192.168.1.132:8080/dashboard/appointment/${action}/${id}`, {
+            const res = await fetch(`http://192.168.1.32:8080/dashboard/appointment/${action}/${id}`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -228,8 +310,8 @@ useEffect(() => {
     
     const method = editingServiceId ? 'PUT' : 'POST';
     const url = editingServiceId 
-        ? `http://192.168.1.132:8080/api/services/${editingServiceId}` 
-        : 'http://192.168.1.132:8080/api/services';
+        ? `http://192.168.1.32:8080/api/services/${editingServiceId}` 
+        : 'http://192.168.1.32:8080/api/services';
 
     try {
         const res = await fetch(url, {
@@ -255,7 +337,7 @@ useEffect(() => {
     const handleDeleteService = async (id) => {
     if (!window.confirm("Atenție! Serviciul va fi șters definitiv din baza de date. Continui?")) return;
     try {
-        const res = await fetch(`http://192.168.1.132:8080/api/services/${id}`, {
+        const res = await fetch(`http://192.168.1.32:8080/api/services/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -300,7 +382,7 @@ useEffect(() => {
         }
 
         try{
-           const res = await fetch(`http://192.168.1.132:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
+           const res = await fetch(`http://192.168.1.32:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -410,215 +492,319 @@ useEffect(() => {
                             }))}
                             headerToolbar={{ left: 'prev,next today', center: 'title', right: '' }}
                             height="auto"
+                            contentHeight="auto"
+                            stickyHeaderDates={true}
+                            allDaySlot={false}
+                            longPressDelay={250}
+                            eventLongPressDelay={250}
+                            selectLongPressDelay={250}
                         />
                     </div>
                 )}
 
                 {/* TAB 2: AGENDĂ (LISTĂ) */}
                 {activeTab === 'list' && (
-                    <div className="agenda-section">
-                        <div className="date-navigator-wrapper">
-                            <label className="section-divider-title">Alege Ziua</label>
-                           <Flatpickr
-                             value={selectedDate}
-                             className="luxury-date-picker"
-                             options={{ 
-                                dateFormat: "Y-m-d", 
-                                locale: { firstDayOfWeek: 1 },
-                                disableMobile: "true" // Previne tastatura nativă pe mobil pentru o experiență mai fluidă
-                                }}
-                                
-                                onChange={([date]) => {
-                                    
-                               // Folosim metoda locală pentru a obține formatul YYYY-MM-DD fără decalaj de fus orar
-                               const year = date.getFullYear();
-                               const month = String(date.getMonth() + 1).padStart(2, '0');
-                               const day = String(date.getDate()).padStart(2, '0');
-                               const formattedDate = `${year}-${month}-${day}`;
-                               
-                               setSelectedDate(formattedDate);
-                               
-                               }}
-                               
-                            />
-                        
-                        </div>
+    <div className="agenda-section">
+        
+        {/* BARA DE CĂUTARE PREMIUM */}
+        <div className="premium-search-container glass-effect">
+            <form onSubmit={handleSearch} className="search-form-modern">
+                <div className="search-input-group">
+                    <select 
+                        className="search-select-modern"
+                        value={searchType}
+                        onChange={(e) => setSearchType(e.target.value)}
+                    >
+                        <option value="name">Nume</option>
+                        <option value="phone">Telefon</option>
+                        <option value="email">Email</option>
+                    </select>
+                    
+                    <input 
+                        type={searchType === 'email' ? 'email' : 'text'}
+                        className="search-input-modern"
+                        placeholder="Caută client..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    
+                    {searchTerm && (
+                        <button type="button" onClick={clearSearch} className="btn-clear-search">
+                            ✕
+                        </button>
+                    )}
+                    
+                    <button type="submit" className="btn-search-modern" disabled={isSearching}>
+                        {isSearching ? '⏳' : '🔍'}
+                    </button>
+                </div>
+            </form>
+        </div>
 
-                        <div className="appointments-grid">
-                            {appointments.length === 0 ? (
-                                <p className="empty-state">Nicio programare pentru această zi.</p>
-                            ) : (
-                                appointments.map(app => (
-                                    <div key={app.id} className="appointment-card glass-effect">
-                                        <div className={`status-indicator ${app.status.toLowerCase()}`}></div>
-                                        <div className="card-content">
-                                            <div className="card-header-row">
-                                                <div className="time-badge">
-                                                    <span className="app-time">{app.startTime.split('T')[1].substring(0,5)}</span>
-                                                    <span className="price-tag">{app.price} RON</span>
-                                                </div>
-                                                <button onClick={() => handleEdit(app.id)} className="btn-icon edit">✎</button>
-                                            </div>
-                                            <div className="client-info">
-                                                <h4>{app.clientName}</h4>
-                                                <p className="service-name">{app.serviceName}</p>
-                                            </div>
-                                            <div className="card-actions">
-    {/* Grupul de Contact (Sună + WhatsApp) */}
-    <a href={`tel:${app.phoneNumber}`} className="btn-icon call">
-        <span>📞</span> Sună
-    </a>
-    <a href={`https://wa.me/${formatWhatsApp(app.phoneNumber)}`} target="_blank" className="btn-icon whatsapp">
-        <span>📱</span> WhatsApp
-    </a>
+        {/* Dacă NU suntem în modul căutare, afișăm date picker-ul normal */}
+        {!searchResults && (
+            <div className="date-navigator-wrapper">
+                <label className="section-divider-title">Alege Ziua</label>
+                <Flatpickr
+                    value={selectedDate}
+                    className="luxury-date-picker"
+                    options={{ dateFormat: "Y-m-d", locale: { firstDayOfWeek: 1 }, disableMobile: "true" }}
+                    onChange={([date]) => {
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        setSelectedDate(`${year}-${month}-${day}`);
+                    }}
+                />
+            </div>
+        )}
 
-    {/* Grupul de Status (Gata / Anulează) */}
-    {app.status !== 'COMPLETED' && app.status !== 'CANCELED' && (
-        <button onClick={() => updateStatus(app.id, 'complete')} className="btn-icon complete">
-            <span>✅</span> Finalizează
-        </button>
-    )}
-    
-    {app.status !== 'CANCELED' && app.status !== 'COMPLETED' && (
-        <button onClick={() => updateStatus(app.id, 'cancel')} className="btn-icon delete-icon">
-            <span>🚫</span> Anulează
-        </button>
-    )}
-</div>
+        {/* LISTA DE REZULTATE SAU PROGRAMĂRI ZILNICE */}
+        <div className="appointments-grid">
+            {searchResults !== null ? (
+                // Afișăm rezultatele căutării
+                <>
+                    <h3 className="section-divider-title">Rezultatele căutării ({searchResults.length})</h3>
+                    {searchResults.length === 0 ? (
+                        <p className="empty-state">Niciun client găsit.</p>
+                    ) : (
+                        searchResults.map(app => (
+                            /* Reutilizăm cardul existent pentru programări */
+                            <div key={app.id} className="appointment-card glass-effect">
+                                <div className={`status-indicator ${app.status?.toLowerCase() || 'pending'}`}></div>
+                                <div className="card-content">
+                                    <div className="card-header-row">
+                                        <div className="time-badge">
+                                            <span className="app-date">{app.startTime.split('T')[0]}</span>
+                                            <span className="app-time" style={{marginLeft: '10px'}}>{app.startTime.split('T')[1].substring(0,5)}</span>
                                         </div>
                                     </div>
-                                ))
+                                    <div className="client-info">
+                                        <h4>{app.clientName}</h4>
+                                        <p className="service-name">{app.serviceName} - {app.price} RON</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </>
+            ) : (
+                // Afișăm agenda normală a zilei (codul tău existent)
+                appointments.length === 0 ? (
+                    <p className="empty-state">Nicio programare pentru această zi.</p>
+                ) : (
+                    appointments.map(app => (
+                        <div key={app.id} className="appointment-card glass-effect">
+                           {/* Aici păstrezi codul tău exact așa cum era pentru afișarea cardului normal */}
+                           <div className={`status-indicator ${app.status?.toLowerCase() || 'pending'}`}></div>
+                           <div className="card-content">
+                               <div className="card-header-row">
+                                   <div className="time-badge">
+                                       <span className="app-time">{app.startTime.split('T')[1].substring(0,5)}</span>
+                                       <span className="price-tag">{app.price} RON</span>
+                                   </div>
+                                   <button onClick={() => handleEdit(app.id)} className="btn-icon edit">✎</button>
+                               </div>
+                               <div className="client-info">
+                                   <h4>{app.clientName}</h4>
+                                   <p className="service-name">{app.serviceName}</p>
+                               </div>
+                               <div className="card-actions">
+                                   <a href={`tel:${app.phoneNumber}`} className="btn-icon call"><span>📞</span> Sună</a>
+                                   <a href={`https://wa.me/${formatWhatsApp(app.phoneNumber)}`} target="_blank" rel="noreferrer" className="btn-icon whatsapp"><span>📱</span> WhatsApp</a>
+                                   {app.status !== 'COMPLETED' && app.status !== 'CANCELED' && (
+                                       <button onClick={() => updateStatus(app.id, 'complete')} className="btn-icon complete"><span>✅</span> Finalizează</button>
+                                   )}
+                                   {app.status !== 'CANCELED' && app.status !== 'COMPLETED' && (
+                                       <button onClick={() => updateStatus(app.id, 'cancel')} className="btn-icon delete-icon"><span>🚫</span> Anulează</button>
+                                   )}
+                               </div>
+                           </div>
+                        </div>
+                    ))
+                )
+            )}
+        </div>
+    </div>
+)}
+
+                {/* TAB 3: SERVICII */}
+                {activeTab === 'services' && (
+                    <div className="premium-services-section">
+                        <h3 className="section-divider-title">✂️ Management Servicii</h3>
+                        
+                        {/* CARDUL DE ADĂUGARE / EDITARE */}
+                        <div className="premium-form-card">
+                            <h4 className="gold-text-title">
+                                {editingServiceId ? "Editează Serviciul" : "Adaugă Serviciu Nou"}
+                            </h4>
+                            <form onSubmit={handleSaveService} className="premium-service-form">
+                                <div className="form-group-modern">
+                                    <input 
+                                        type="text" 
+                                        className="premium-input-modern"
+                                        placeholder="Denumire Serviciu (ex: Tuns și Barbă)" 
+                                        required
+                                        value={newService.serviceName}
+                                        onChange={e => setNewService({...newService, serviceName: e.target.value})} 
+                                    />
+                                </div>
+                                
+                                {/* AICI ESTE MAGIA PENTRU ALINIERE: Grid-ul pe 2 coloane */}
+                                <div className="input-grid-2col">
+                                    <input 
+                                        type="number" 
+                                        className="premium-input-modern"
+                                        placeholder="Preț (RON)" 
+                                        required
+                                        value={newService.price}
+                                        onChange={e => setNewService({...newService, price: e.target.value})} 
+                                    />
+                                    <input 
+                                        type="number" 
+                                        className="premium-input-modern"
+                                        placeholder="Durată (Min)" 
+                                        required
+                                        value={newService.duration}
+                                        onChange={e => setNewService({...newService, duration: e.target.value})} 
+                                    />
+                                </div>
+
+                                <div className="form-actions-row">
+                                    <button type="submit" className="btn-save-modern" disabled={isSubmitting}>
+                                        {isSubmitting ? "Se salvează..." : (editingServiceId ? "✔️ Salvează Modificările" : "+ Adaugă Serviciu")}
+                                    </button>
+                                    
+                                    {editingServiceId && (
+                                        <button 
+                                            type="button" 
+                                            className="btn-cancel-modern"
+                                            onClick={() => { setEditingServiceId(null); setNewService({serviceName:'', price:'', duration:''}); }}>
+                                            Anulează
+                                        </button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
+
+                        {/* LISTA DE SERVICII */}
+                        <div className="premium-services-list">
+                            {myServices.map(service => (
+                                <div key={service.id} className="premium-service-item">
+                                    <div className="service-main-info">
+                                        <h5 className="service-title-modern">{service.serviceName}</h5>
+                                        <div className="service-badges">
+                                            <span className="badge-price">{service.price} RON</span>
+                                            <span className="badge-time">{service.duration} min</span>
+                                        </div>
+                                    </div>
+                                    <div className="service-actions-modern">
+                                        <button onClick={() => startEdit(service)} className="btn-icon-modern edit">✎</button>
+                                        <button onClick={() => handleDeleteService(service.id)} className="btn-icon-modern delete">🗑️</button>
+                                    </div>
+                                </div>
+                            ))}
+                            {myServices.length === 0 && (
+                                <p className="empty-state">Nu ai adăugat niciun serviciu încă.</p>
                             )}
                         </div>
                     </div>
                 )}
+                
 
-                {/* TAB 3: SERVICII */}
-                {activeTab === 'services' && (
-                    <div className="services-admin-section">
-    <h3 className="section-divider-title">✂️ Management Servicii</h3>
-    
-    <div className="legal-card service-add-card">
-        <h4 className="gold-text">
-            {editingServiceId ? "Editează Serviciul" : "Adaugă Serviciu Nou"}
-        </h4>
-        <form onSubmit={handleSaveService} className="mini-form">
-            <div className="form-group">
-                <input type="text" placeholder="Denumire Serviciu" required
-                    value={newService.serviceName}
-                    onChange={e => setNewService({...newService, serviceName: e.target.value})} />
-            </div>
-            <div className="form-row-dual">
-                <input type="number" placeholder="Preț" required
-                    value={newService.price}
-                    onChange={e => setNewService({...newService, price: e.target.value})} />
-                <input type="number" placeholder="Min" required
-                    value={newService.duration}
-                    onChange={e => setNewService({...newService, duration: e.target.value})} />
-            </div>
-            <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn-cta" disabled={isSubmitting}>
-                    {isSubmitting ? "Se salvează..." : (editingServiceId ? "Salvează Modificările" : "+ Adaugă")}
-                </button>
-                {editingServiceId && (
-                    <button type="button" className="btn-logout-premium" style={{fontSize: '0.8rem', padding: '10px'}}
-                        onClick={() => { setEditingServiceId(null); setNewService({serviceName:'', price:'', duration:''}); }}>
-                        Anulează
-                    </button>
-                )}
-            </div>
-        </form>
-    </div>
-
-    <div className="services-active-list">
-        {myServices.map(service => (
-            <div key={service.id} className="service-admin-item glass-effect">
-                <div className="service-main-info">
-                    <h5>{service.serviceName}</h5>
-                    <p>{service.price} RON • {service.duration} min</p>
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => startEdit(service)} className="btn-icon edit">✎</button>
-                    <button onClick={() => handleDeleteService(service.id)} className="btn-delete-mini">🗑️</button>
-                </div>
-            </div>
-        ))}
-    </div>
-</div>
-                )}
-
-            
-
-           {activeTab === 'schedule' && (
-    <div className="schedule-manager-section">
-        <div className="section-header-row">
+         {/* TAB 5: PROGRAM DE LUCRU */}
+{activeTab === 'schedule' && (
+    <div className="premium-schedule-section">
+        <div className="schedule-header-modern">
             <h3 className="section-divider-title">🕒 Programul Meu de Lucru</h3>
-            <button onClick={copyMondayToAll} className="btn-magic-copy">🪄 Copiază Luni</button>
+            <button onClick={copyMondayToAll} className="btn-magic-copy-modern">
+                <span>🪄</span> Copiază Luni
+            </button>
         </div>
 
-        <div className="schedule-grid">
-            {/* Verificăm dacă weeklySchedule există și are elemente */}
-            {weeklySchedule && weeklySchedule.length > 0 ? (
+        <div className="schedule-cards-grid">
+            {isLoadingSchedule ? (
+                <div className="loading-state-modern">
+                    <span className="spinner">⌛</span> Se încarcă programul...
+                </div>
+            ) : weeklySchedule && weeklySchedule.length > 0 ? (
                 weeklySchedule.map((day, index) => (
-                    <div key={day.dayOfWeek} className={`day-schedule-card ${day.isWorkingDay ? 'active' : 'inactive'}`}>
-                        <div className="day-info">
-                            <span className="day-name">{day.dayOfWeek}</span>
-                            <div className="toggle-wrapper">
-                                <input 
-                                    type="checkbox" 
-                                    checked={day.isWorkingDay || false} 
-                                    onChange={() => handleDayToggle(index)} 
-                                    id={`check-${index}`}
-                                />
-                                <label htmlFor={`check-${index}`}>{day.isWorkingDay ? "DESCHIS" : "ÎNCHIS"}</label>
+                    <div key={day.dayOfWeek} className={`premium-day-card ${day.isWorkingDay ? 'is-open' : 'is-closed'}`}>
+                        
+                        {/* Partea de sus: Ziua și Switch-ul */}
+                        <div className="day-card-header">
+                            <h4 className="day-name-modern">{day.dayOfWeek}</h4>
+                            
+                            <div className="toggle-switch-modern">
+                                <span className="status-text">{day.isWorkingDay ? 'DESCHIS' : 'ÎNCHIS'}</span>
+                                <label className="premium-switch">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={day.isWorkingDay || false} 
+                                        onChange={() => handleDayToggle(index)} 
+                                    />
+                                    <span className="premium-slider"></span>
+                                </label>
                             </div>
                         </div>
 
+                        {/* Partea de jos: Slider-ul de ore (doar dacă e deschis) */}
                         {day.isWorkingDay && (
-    <div className="range-slider-container" style={{ padding: '20px 10px' }}>
-        <div className="time-labels" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px' }}>
-            <span className="gold-text">🕒 {day.startTime?.substring(0, 5) || "09:00"}</span>
-            <span className="gold-text">🕒 {day.endTime?.substring(0, 5) || "18:00"}</span>
-        </div>
-        
-        <Slider
-            range
-            min={0}
-            max={1440}
-            step={15} // Pași de 15 minute
-            value={[
-                timeToMinutes(day.startTime || "09:00"),
-                timeToMinutes(day.endTime || "18:00")
-            ]}
-            onChange={(values) => {
-                handleTimeChange(index, 'startTime', minutesToTime(values[0]));
-                handleTimeChange(index, 'endTime', minutesToTime(values[1]));
-            }}
-            trackStyle={[{ backgroundColor: 'var(--accent-gold)' }]}
-            handleStyle={[
-                { backgroundColor: '#000', borderColor: 'var(--accent-gold)' },
-                { backgroundColor: '#000', borderColor: 'var(--accent-gold)' }
-            ]}
-            railStyle={{ backgroundColor: '#333' }}
-        />
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '10px', color: '#555' }}>
-            <span>00:00</span>
-            <span>12:00</span>
-            <span>23:45</span>
-        </div>
-    </div>
-)}
+                            <div className="day-card-body">
+                                <div className="time-display-modern">
+                                    <div className="time-bubble">
+                                        <span className="icon">🌅</span>
+                                        <span>{day.startTime?.substring(0, 5) || "09:00"}</span>
+                                    </div>
+                                    <div className="time-line-connector"></div>
+                                    <div className="time-bubble">
+                                        <span className="icon">🌃</span>
+                                        <span>{day.endTime?.substring(0, 5) || "18:00"}</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="slider-wrapper-modern">
+                                    <Slider
+                                        range
+                                        min={0}
+                                        max={1440}
+                                        step={15}
+                                        value={[
+                                            timeToMinutes(day.startTime || "09:00"),
+                                            timeToMinutes(day.endTime || "18:00")
+                                        ]}
+                                        onChange={(values) => {
+                                            handleTimeChange(index, 'startTime', minutesToTime(values[0]));
+                                            handleTimeChange(index, 'endTime', minutesToTime(values[1]));
+                                        }}
+                                        trackStyle={[{ backgroundColor: 'var(--accent-gold)', height: '6px' }]}
+                                        handleStyle={[
+                                            { backgroundColor: '#000', borderColor: 'var(--accent-gold)', width: '20px', height: '20px', marginTop: '-7px', opacity: 1, boxShadow: '0 2px 5px rgba(0,0,0,0.5)' },
+                                            { backgroundColor: '#000', borderColor: 'var(--accent-gold)', width: '20px', height: '20px', marginTop: '-7px', opacity: 1, boxShadow: '0 2px 5px rgba(0,0,0,0.5)' }
+                                        ]}
+                                        railStyle={{ backgroundColor: 'rgba(255,255,255,0.1)', height: '6px' }}
+                                    />
+                                </div>
+                                
+                                <div className="slider-labels-modern">
+                                    <span>00:00</span>
+                                    <span>12:00</span>
+                                    <span>24:00</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 ))
             ) : (
-                <p className="empty-state">Se încarcă programul de pe server...</p>
+                <div className="empty-state">Nu s-a putut încărca programul.</div>
             )}
         </div>
 
-        <button onClick={saveSchedule} className="btn-cta save-schedule-btn" disabled={isSavingSchedule}>
-            {isSavingSchedule ? "Se salvează..." : "Salvează Programul"}
-        </button>
+        <div className="save-action-container">
+            <button onClick={saveSchedule} className="btn-save-modern" disabled={isSavingSchedule}>
+                {isSavingSchedule ? "Se salvează..." : "✔️ Salvează Programul"}
+            </button>
+        </div>
     </div>
 )}
 
