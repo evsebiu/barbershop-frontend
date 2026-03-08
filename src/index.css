@@ -3098,3 +3098,181 @@ body .fc .fc-toolbar {
         padding: 0 15px;
     }
 }
+
+
+/* =========================================
+   FAB (Floating Action Button)
+========================================= */
+.btn-floating-add {
+    position: fixed;
+    bottom: 90px; /* Deasupra la bottom-nav */
+    right: 20px;
+    width: clamp(50px, 12vw, 65px);
+    height: clamp(50px, 12vw, 65px);
+    background: var(--accent-gold, #d4af37);
+    color: #111;
+    border: none;
+    border-radius: 50%;
+    font-size: clamp(1.8rem, 5vw, 2.2rem);
+    font-weight: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(212, 175, 55, 0.4);
+    cursor: pointer;
+    z-index: 99;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s;
+}
+
+.btn-floating-add:active {
+    transform: scale(0.9);
+}
+
+.btn-floating-add:hover {
+    filter: brightness(1.1);
+}
+
+/* =========================================
+   SLIDE-OVER PANEL (SaaS Style)
+========================================= */
+.slide-over-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.slide-over-backdrop.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.slide-over-panel {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 100%;
+    max-width: 450px; /* Ocupă tot ecranul pe mobil, limitat la 450px pe desktop */
+    background: #121212;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.slide-over-panel.is-open {
+    transform: translateX(0);
+}
+
+.slide-over-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: clamp(1.2rem, 4vw, 1.5rem);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.slide-over-header h3 {
+    margin: 0;
+    font-size: clamp(1.2rem, 3vw, 1.4rem);
+    color: #fff;
+    font-weight: 500;
+}
+
+.btn-close-modal {
+    background: transparent;
+    border: none;
+    color: #888;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.btn-close-modal:hover { color: #d4af37; }
+
+.slide-over-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(1.2rem, 4vw, 1.5rem);
+    padding-bottom: 120px;
+}
+
+/* =========================================
+   FORMULARUL
+========================================= */
+.saas-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.form-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr; /* Mobile default: 1 coloană */
+    gap: 1.5rem;
+}
+
+/* De la tablete în sus trecem pe 2 coloane */
+@media (min-width: 450px) {
+    .form-grid-2 { grid-template-columns: 1fr 1fr; }
+}
+
+.form-group-saas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group-saas label {
+    font-size: 0.85rem;
+    color: #a0a0a0;
+    font-weight: 500;
+}
+
+.form-group-saas input,
+.form-group-saas select,
+.saas-input {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    box-sizing: border-box;
+}
+
+.form-group-saas input:focus,
+.form-group-saas select:focus {
+    border-color: var(--accent-gold, #d4af37);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+}
+
+.slide-over-footer {
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.btn-saas-primary {
+    width: 100%;
+    padding: 1.1rem;
+    background: var(--accent-gold, #d4af37);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-saas-primary:hover {
+    background: #e5c352;
+}

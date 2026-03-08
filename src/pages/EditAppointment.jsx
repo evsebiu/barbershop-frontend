@@ -24,7 +24,7 @@ const EditAppointment = () => {
         const fetchData = async () => {
             try {
                 // 1. Încărcăm datele programării specifice
-                const appRes = await fetch(`http://192.168.1.32:8080/api/appointments/${id}`, { 
+                const appRes = await fetch(`http://192.168.1.48:8080/api/appointments/${id}`, { 
                     credentials: 'include' 
                 });
                 
@@ -32,7 +32,7 @@ const EditAppointment = () => {
                 const appData = await appRes.json();
                 
                 // 2. Încărcăm toate serviciile pentru dropdown
-                const srvRes = await fetch(`http://192.168.1.32:8080/api/services`, { 
+                const srvRes = await fetch(`http://192.168.1.48:8080/api/services`, { 
                     credentials: 'include' 
                 });
                 const srvData = await srvRes.json();
@@ -62,7 +62,7 @@ const EditAppointment = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch(`http://192.168.1.32:8080/api/appointments/${id}`, {
+            const res = await fetch(`http://192.168.1.48:8080/api/appointments/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),

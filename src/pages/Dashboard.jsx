@@ -32,6 +32,15 @@ const Dashboard = () => {
     const [searchResults, setSearchResults] = useState(null); // null = nu se caută nimic
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingSchedule, setIsLoadingSchedule] = useState(true);
+    const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+    
+    const [manualBooking, setManualBooking] = useState({
+        clientName: '',
+        phoneNumber: '',
+        clientEmail: '',
+        startTime: '',
+        serviceId: '',
+    });
 
     // TRANSFORMARE PENTRU UPGRADE RANGE SLIDER
 
@@ -67,7 +76,7 @@ const minutesToTime = (totalMinutes) => {
     try {
         // ATENȚIE: Verifică dacă acest URL este cel corect! 
         // Înainte aveai '/dashboard/api/dashboard/schedule' care s-ar putea să fi fost duplicat
-        const res = await fetch('http://192.168.1.32:8080/api/dashboard/schedule', { 
+        const res = await fetch('http://192.168.1.48:8080/api/dashboard/schedule', { 
             credentials: 'include' 
         });
 
@@ -127,7 +136,7 @@ const copyMondayToAll = () => {
 const saveSchedule = async () => {
     setIsSavingSchedule(true);
     try {
-        const res = await fetch('http://192.168.1.32:8080/dashboard/api/dashboard/schedule/save', {
+        const res = await fetch('http://192.168.1.48:8080/dashboard/api/dashboard/schedule/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dailySchedules: weeklySchedule }),
@@ -146,7 +155,7 @@ const saveSchedule = async () => {
     // 1. Fetch Lista Frizeri (Doar dacă ești pe tab-ul Team)
 const fetchBarbers = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.32:8080/api/admin/barbers', {
+            const res = await fetch('http://192.168.1.48:8080/api/admin/barbers', {
                 credentials: 'include'
             });
             
@@ -174,7 +183,7 @@ const handleToggleBarber = async (id, currentStatus) => {
     setAllBarbers(updatedBarbers);
 
     try {
-        const res = await fetch(`http://192.168.1.32:8080/api/admin/barbers/toggle/${id}`, {
+        const res = await fetch(`http://192.168.1.48:8080/api/admin/barbers/toggle/${id}`, {
             method: 'PATCH', // Sau POST, depinde cum ai definit în Java (ai pus @PatchMapping)
             credentials: 'include'
         });
@@ -200,7 +209,7 @@ useEffect(() => {
     // 1. Agenda Zilei
     const fetchAgendaData = useCallback(async (date) => {
         try {
-            const res = await fetch(`http://192.168.1.32:8080/dashboard/appointments-by-date?date=${date}`, {
+            const res = await fetch(`http://192.168.1.48:8080/dashboard/appointments-by-date?date=${date}`, {
                 credentials: 'include'
             });
             const data = await res.json();
@@ -211,7 +220,7 @@ useEffect(() => {
     // 2. Următorul Client (Focus)
     const fetchNextClient = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.32:8080/dashboard/next-appointment-data', {
+            const res = await fetch('http://192.168.1.48:8080/dashboard/next-appointment-data', {
                 credentials: 'include'
             });
             if (res.status === 200) {
@@ -224,7 +233,7 @@ useEffect(() => {
     // 3. Management Servicii
     const fetchMyServices = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.32:8080/api/services', { 
+            const res = await fetch('http://192.168.1.48:8080/api/services', { 
                 credentials: 'include' 
             });
             
@@ -248,7 +257,7 @@ useEffect(() => {
             fetchAgendaData(selectedDate);
         }
 
-        if(activeTab === 'services') fetchMyServices();
+       fetchMyServices();
     }, [activeTab, selectedDate, fetchAgendaData, fetchNextClient, fetchMyServices]);
 
     // --- HANDLERS (ACȚIUNI) ---
@@ -266,7 +275,7 @@ const handleSearch = async (e) => {
         // Construim query-ul pe baza selecției
         const queryParam = `${searchType}=${encodeURIComponent(searchTerm)}`;
         
-        const res = await fetch(`http://192.168.1.32:8080/api/appointments/search?${queryParam}`, {
+        const res = await fetch(`http://192.168.1.48:8080/api/appointments/search?${queryParam}`, {
             credentials: 'include'
         });
         
@@ -292,7 +301,7 @@ const clearSearch = () => {
     const updateStatus = async (id, action) => {
         if (!window.confirm(`Sigur vrei să marchezi programarea ca ${action}?`)) return;
         try {
-            const res = await fetch(`http://192.168.1.32:8080/dashboard/appointment/${action}/${id}`, {
+            const res = await fetch(`http://192.168.1.48:8080/dashboard/appointment/${action}/${id}`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -303,6 +312,33 @@ const clearSearch = () => {
         } catch (err) { alert("Eroare de comunicare cu serverul."); }
     };
 
+    const handleManualBookingSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            // ATENȚIE: Link-ul modificat cu /manual-booking
+            const res = await fetch('http://192.168.1.48:8080/api/appointments/manual-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(manualBooking),
+                credentials: 'include'
+            });
+
+            if (res.ok) {
+                setIsBookingModalOpen(false); 
+                setManualBooking({ clientName: '', phoneNumber: '', clientEmail: '', startTime: '', serviceId: '' });
+                fetchAgendaData(selectedDate);
+                fetchNextClient();
+                alert("✅ Programare adăugată cu succes!");
+            } else {
+                // Aici extragem motivul EXACT de la Java (ex: "Eroare: Nu poți programa in trecut")
+                const errorData = await res.json(); 
+                alert("❌ Eroare: " + (errorData.message || "Date invalide."));
+            }
+        } catch (err) {
+            alert("❌ Eroare de conexiune cu serverul.");
+        }
+    };
+
     // Management Servicii: Adăugare
   const handleSaveService = async (e) => {
     e.preventDefault();
@@ -310,8 +346,8 @@ const clearSearch = () => {
     
     const method = editingServiceId ? 'PUT' : 'POST';
     const url = editingServiceId 
-        ? `http://192.168.1.32:8080/api/services/${editingServiceId}` 
-        : 'http://192.168.1.32:8080/api/services';
+        ? `http://192.168.1.48:8080/api/services/${editingServiceId}` 
+        : 'http://192.168.1.48:8080/api/services';
 
     try {
         const res = await fetch(url, {
@@ -337,7 +373,7 @@ const clearSearch = () => {
     const handleDeleteService = async (id) => {
     if (!window.confirm("Atenție! Serviciul va fi șters definitiv din baza de date. Continui?")) return;
     try {
-        const res = await fetch(`http://192.168.1.32:8080/api/services/${id}`, {
+        const res = await fetch(`http://192.168.1.48:8080/api/services/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -382,7 +418,7 @@ const clearSearch = () => {
         }
 
         try{
-           const res = await fetch(`http://192.168.1.32:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
+           const res = await fetch(`http://192.168.1.48:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -425,6 +461,8 @@ const clearSearch = () => {
     background: 'rgba(10,10,10,0.8)', // Ușor transparent
     backdropFilter: 'blur(10px)'
 }}>
+
+
     <div className="user-welcome">
         {/* Folosim 'clamp' pentru text responsive */}
         <h2 style={{ 
@@ -887,6 +925,100 @@ const clearSearch = () => {
     <span className="nav-label">Program</span>
 </button>
             </nav>
+            {/* BUTONUL FLOATANT PENTRU ADĂUGARE RAPIDĂ */}
+            <button 
+                className="btn-floating-add" 
+                onClick={() => setIsBookingModalOpen(true)}
+            >
+                +
+            </button>
+
+            {/* SLIDE-OVER PANEL (MODAL) */}
+            <div className={`slide-over-backdrop ${isBookingModalOpen ? 'is-visible' : ''}`} onClick={() => setIsBookingModalOpen(false)}>
+                <div className={`slide-over-panel ${isBookingModalOpen ? 'is-open' : ''}`} onClick={(e) => e.stopPropagation()}>
+                    
+                    <div className="slide-over-header">
+                        <h3>Programare Nouă</h3>
+                        <button className="btn-close-modal" onClick={() => setIsBookingModalOpen(false)}>✕</button>
+                    </div>
+
+                    <div className="slide-over-body">
+                        <form onSubmit={handleManualBookingSubmit} className="saas-form">
+                            
+                            <div className="form-group-saas">
+                                <label>Nume Client</label>
+                                <input 
+                                    type="text" 
+                                    required 
+                                    placeholder="ex: Alex Popescu"
+                                    value={manualBooking.clientName}
+                                    onChange={e => setManualBooking({...manualBooking, clientName: e.target.value})}
+                                />
+                            </div>
+
+                            <div className="form-grid-2">
+                                <div className="form-group-saas">
+                                    <label>Telefon</label>
+                                    <input 
+                                        type="tel" 
+                                        required 
+                                        placeholder="07XX XXX XXX"
+                                        value={manualBooking.phoneNumber}
+                                        onChange={e => setManualBooking({...manualBooking, phoneNumber: e.target.value})}
+                                    />
+                                </div>
+                                <div className="form-group-saas">
+                                    <label>Email (Opțional)</label>
+                                    <input 
+                                        type="email" 
+                                        placeholder="client@email.com"
+                                        value={manualBooking.clientEmail}
+                                        onChange={e => setManualBooking({...manualBooking, clientEmail: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group-saas">
+                                <label>Data și Ora</label>
+                                <Flatpickr
+                                    value={manualBooking.startTime}
+                                    className="saas-input"
+                                    options={{ 
+                                        enableTime: true, 
+                                        dateFormat: "Y-m-d H:i", 
+                                        time_24hr: true,
+                                        disableMobile: "true"
+                                    }}
+                                    onChange={([date]) => {
+                                        const offset = date.getTimezoneOffset() * 60000;
+                                        const localTime = (new Date(date - offset)).toISOString().slice(0, 19);
+                                        setManualBooking({...manualBooking, startTime: localTime});
+                                    }}
+                                    placeholder="Alege data și ora"
+                                />
+                            </div>
+
+                            <div className="form-group-saas">
+                                <label>Serviciu</label>
+                                <select 
+                                    required
+                                    value={manualBooking.serviceId}
+                                    onChange={e => setManualBooking({...manualBooking, serviceId: e.target.value})}
+                                >
+                                    <option value="" disabled>Alege un serviciu...</option>
+                                    {myServices.map(s => (
+                                        <option key={s.id} value={s.id}>{s.serviceName} - {s.price} RON</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="slide-over-footer">
+                                <button type="submit" className="btn-saas-primary">Adaugă Programarea</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

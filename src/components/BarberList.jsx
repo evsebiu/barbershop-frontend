@@ -7,7 +7,7 @@ const BarberList = () => {
   const [coloredId, setColoredId] = useState(null);
 
   useEffect(() => {
-    fetch('http://192.168.1.32:8080/api/barbers/active')
+    fetch('http://192.168.1.48:8080/api/barbers/active')
       .then(res => res.json())
       .then(data => {
         setBarbers(data);
