@@ -8,7 +8,7 @@ const BarberProfile = () => {
 
   useEffect(() => {
     // 1. Verificăm că URL-ul este cel de ID, nu cel de search
-    fetch(`http://192.168.1.12:8080/api/barbers/${id}`) 
+    fetch(`http://192.168.1.130:8080/api/barbers/${id}`) 
       .then(res => {
         if (!res.ok) throw new Error("Frizerul nu a fost găsit");
         return res.json();

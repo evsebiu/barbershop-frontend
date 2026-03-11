@@ -45,7 +45,7 @@ const Dashboard = () => {
     useEffect(() => {
         const fetchCurrentUser = async () => {
             try {
-                const res = await fetch('http://192.168.1.12:8080/api/barbers/me', {
+                const res = await fetch('http://192.168.1.130:8080/api/barbers/me', {
                     credentials: 'include'
                 });
                 if (res.ok) {
@@ -108,7 +108,7 @@ const minutesToTime = (totalMinutes) => {
     try {
         // ATENȚIE: Verifică dacă acest URL este cel corect! 
         // Înainte aveai '/dashboard/api/dashboard/schedule' care s-ar putea să fi fost duplicat
-        const res = await fetch('http://192.168.1.12:8080/api/dashboard/schedule', { 
+        const res = await fetch('http://192.168.1.130:8080/api/dashboard/schedule', { 
             credentials: 'include' 
         });
 
@@ -168,7 +168,7 @@ const copyMondayToAll = () => {
 const saveSchedule = async () => {
     setIsSavingSchedule(true);
     try {
-        const res = await fetch('http://192.168.1.12:8080/dashboard/api/dashboard/schedule/save', {
+        const res = await fetch('http://192.168.1.130:8080/dashboard/api/dashboard/schedule/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dailySchedules: weeklySchedule }),
@@ -187,7 +187,7 @@ const saveSchedule = async () => {
     // 1. Fetch Lista Frizeri (Doar dacă ești pe tab-ul Team)
 const fetchBarbers = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.12:8080/api/admin/barbers', {
+            const res = await fetch('http://192.168.1.130:8080/api/admin/barbers', {
                 credentials: 'include'
             });
             
@@ -215,7 +215,7 @@ const handleToggleBarber = async (id, currentStatus) => {
     setAllBarbers(updatedBarbers);
 
     try {
-        const res = await fetch(`http://192.168.1.12:8080/api/admin/barbers/toggle/${id}`, {
+        const res = await fetch(`http://192.168.1.130:8080/api/admin/barbers/toggle/${id}`, {
             method: 'PATCH', // Sau POST, depinde cum ai definit în Java (ai pus @PatchMapping)
             credentials: 'include'
         });
@@ -241,7 +241,7 @@ useEffect(() => {
     // 1. Agenda Zilei
     const fetchAgendaData = useCallback(async (date) => {
         try {
-            const res = await fetch(`http://192.168.1.12:8080/dashboard/appointments-by-date?date=${date}`, {
+            const res = await fetch(`http://192.168.1.130:8080/dashboard/appointments-by-date?date=${date}`, {
                 credentials: 'include'
             });
             const data = await res.json();
@@ -252,7 +252,7 @@ useEffect(() => {
     // 2. Următorul Client (Focus)
     const fetchNextClient = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.12:8080/dashboard/next-appointment-data', {
+            const res = await fetch('http://192.168.1.130:8080/dashboard/next-appointment-data', {
                 credentials: 'include'
             });
             if (res.status === 200) {
@@ -265,7 +265,7 @@ useEffect(() => {
     // 3. Management Servicii
     const fetchMyServices = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.12:8080/api/services', { 
+            const res = await fetch('http://192.168.1.130:8080/api/services', { 
                 credentials: 'include' 
             });
             
@@ -307,7 +307,7 @@ const handleSearch = async (e) => {
         // Construim query-ul pe baza selecției
         const queryParam = `${searchType}=${encodeURIComponent(searchTerm)}`;
         
-        const res = await fetch(`http://192.168.1.12:8080/api/appointments/search?${queryParam}`, {
+        const res = await fetch(`http://192.168.1.130:8080/api/appointments/search?${queryParam}`, {
             credentials: 'include'
         });
         
@@ -333,7 +333,7 @@ const clearSearch = () => {
     const updateStatus = async (id, action) => {
         if (!window.confirm(`Sigur vrei să marchezi programarea ca ${action}?`)) return;
         try {
-            const res = await fetch(`http://192.168.1.12:8080/dashboard/appointment/${action}/${id}`, {
+            const res = await fetch(`http://192.168.1.130:8080/dashboard/appointment/${action}/${id}`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -348,7 +348,7 @@ const clearSearch = () => {
         e.preventDefault();
         try {
             // ATENȚIE: Link-ul modificat cu /manual-booking
-            const res = await fetch('http://192.168.1.12:8080/api/appointments/manual-booking', {
+            const res = await fetch('http://192.168.1.130:8080/api/appointments/manual-booking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(manualBooking),
@@ -378,8 +378,8 @@ const clearSearch = () => {
     
     const method = editingServiceId ? 'PUT' : 'POST';
     const url = editingServiceId 
-        ? `http://192.168.1.12:8080/api/services/${editingServiceId}` 
-        : 'http://192.168.1.12:8080/api/services';
+        ? `http://192.168.1.130:8080/api/services/${editingServiceId}` 
+        : 'http://192.168.1.130:8080/api/services';
 
     try {
         const res = await fetch(url, {
@@ -408,8 +408,8 @@ const clearSearch = () => {
         
         // Alegem endpoint-ul corect conform BarberControllerAPI.java
         const url = isUpdate 
-            ? `http://192.168.1.12:8080/api/barbers/${editingBarberId}` 
-            : `http://192.168.1.12:8080/api/barbers/register`;
+            ? `http://192.168.1.130:8080/api/barbers/${editingBarberId}` 
+            : `http://192.168.1.130:8080/api/barbers/register`;
         const method = isUpdate ? 'PUT' : 'POST';
 
         // Adaptăm payload-ul în funcție de ce DTO așteaptă Java
@@ -479,7 +479,7 @@ const clearSearch = () => {
     const handleDeleteService = async (id) => {
     if (!window.confirm("Atenție! Serviciul va fi șters definitiv din baza de date. Continui?")) return;
     try {
-        const res = await fetch(`http://192.168.1.12:8080/api/services/${id}`, {
+        const res = await fetch(`http://192.168.1.130:8080/api/services/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -524,7 +524,7 @@ const clearSearch = () => {
         }
 
         try{
-           const res = await fetch(`http://192.168.1.12:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
+           const res = await fetch(`http://192.168.1.130:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -1172,7 +1172,7 @@ const clearSearch = () => {
                                     />
                                 </div>
                                 <div className="form-group-saas">
-                                    <label>Email (Opțional)</label>
+                                    <label>Email (Obligatoriu)</label>
                                     <input 
                                         type="email" 
                                         placeholder="client@email.com"
