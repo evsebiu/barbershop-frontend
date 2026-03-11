@@ -42,6 +42,38 @@ const Dashboard = () => {
         serviceId: '',
     });
 
+    useEffect(() => {
+        const fetchCurrentUser = async () => {
+            try {
+                const res = await fetch('http://192.168.1.12:8080/api/barbers/me', {
+                    credentials: 'include'
+                });
+                if (res.ok) {
+                    const userData = await res.json();
+                    // Setăm automat isAdmin pe true dacă rolul lui e ROLE_ADMIN
+                    setIsAdmin(userData.role === 'ROLE_ADMIN'); 
+                }
+            } catch (err) {
+                console.error("Nu am putut verifica rolul utilizatorului:", err);
+            }
+        };
+
+        fetchCurrentUser(); 
+    }, []);
+
+
+    // --- STĂRI PENTRU MANAGEMENT ECHIPĂ (ADMIN) ---
+    const [isBarberModalOpen, setIsBarberModalOpen] = useState(false);
+    const [editingBarberId, setEditingBarberId] = useState(null);
+    const [barberForm, setBarberForm] = useState({
+        firstName: '',
+        lastName: '',
+        email: '',
+        rawPassword: '', // Folosit doar la creare
+        isAdmin: false,
+        isActive: true
+    });
+
     // TRANSFORMARE PENTRU UPGRADE RANGE SLIDER
 
     const timeToMinutes = (timeStr) => {
@@ -76,7 +108,7 @@ const minutesToTime = (totalMinutes) => {
     try {
         // ATENȚIE: Verifică dacă acest URL este cel corect! 
         // Înainte aveai '/dashboard/api/dashboard/schedule' care s-ar putea să fi fost duplicat
-        const res = await fetch('http://192.168.1.48:8080/api/dashboard/schedule', { 
+        const res = await fetch('http://192.168.1.12:8080/api/dashboard/schedule', { 
             credentials: 'include' 
         });
 
@@ -136,7 +168,7 @@ const copyMondayToAll = () => {
 const saveSchedule = async () => {
     setIsSavingSchedule(true);
     try {
-        const res = await fetch('http://192.168.1.48:8080/dashboard/api/dashboard/schedule/save', {
+        const res = await fetch('http://192.168.1.12:8080/dashboard/api/dashboard/schedule/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ dailySchedules: weeklySchedule }),
@@ -155,7 +187,7 @@ const saveSchedule = async () => {
     // 1. Fetch Lista Frizeri (Doar dacă ești pe tab-ul Team)
 const fetchBarbers = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.48:8080/api/admin/barbers', {
+            const res = await fetch('http://192.168.1.12:8080/api/admin/barbers', {
                 credentials: 'include'
             });
             
@@ -183,7 +215,7 @@ const handleToggleBarber = async (id, currentStatus) => {
     setAllBarbers(updatedBarbers);
 
     try {
-        const res = await fetch(`http://192.168.1.48:8080/api/admin/barbers/toggle/${id}`, {
+        const res = await fetch(`http://192.168.1.12:8080/api/admin/barbers/toggle/${id}`, {
             method: 'PATCH', // Sau POST, depinde cum ai definit în Java (ai pus @PatchMapping)
             credentials: 'include'
         });
@@ -209,7 +241,7 @@ useEffect(() => {
     // 1. Agenda Zilei
     const fetchAgendaData = useCallback(async (date) => {
         try {
-            const res = await fetch(`http://192.168.1.48:8080/dashboard/appointments-by-date?date=${date}`, {
+            const res = await fetch(`http://192.168.1.12:8080/dashboard/appointments-by-date?date=${date}`, {
                 credentials: 'include'
             });
             const data = await res.json();
@@ -220,7 +252,7 @@ useEffect(() => {
     // 2. Următorul Client (Focus)
     const fetchNextClient = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.48:8080/dashboard/next-appointment-data', {
+            const res = await fetch('http://192.168.1.12:8080/dashboard/next-appointment-data', {
                 credentials: 'include'
             });
             if (res.status === 200) {
@@ -233,7 +265,7 @@ useEffect(() => {
     // 3. Management Servicii
     const fetchMyServices = useCallback(async () => {
         try {
-            const res = await fetch('http://192.168.1.48:8080/api/services', { 
+            const res = await fetch('http://192.168.1.12:8080/api/services', { 
                 credentials: 'include' 
             });
             
@@ -275,7 +307,7 @@ const handleSearch = async (e) => {
         // Construim query-ul pe baza selecției
         const queryParam = `${searchType}=${encodeURIComponent(searchTerm)}`;
         
-        const res = await fetch(`http://192.168.1.48:8080/api/appointments/search?${queryParam}`, {
+        const res = await fetch(`http://192.168.1.12:8080/api/appointments/search?${queryParam}`, {
             credentials: 'include'
         });
         
@@ -301,7 +333,7 @@ const clearSearch = () => {
     const updateStatus = async (id, action) => {
         if (!window.confirm(`Sigur vrei să marchezi programarea ca ${action}?`)) return;
         try {
-            const res = await fetch(`http://192.168.1.48:8080/dashboard/appointment/${action}/${id}`, {
+            const res = await fetch(`http://192.168.1.12:8080/dashboard/appointment/${action}/${id}`, {
                 method: 'POST',
                 credentials: 'include'
             });
@@ -316,7 +348,7 @@ const clearSearch = () => {
         e.preventDefault();
         try {
             // ATENȚIE: Link-ul modificat cu /manual-booking
-            const res = await fetch('http://192.168.1.48:8080/api/appointments/manual-booking', {
+            const res = await fetch('http://192.168.1.12:8080/api/appointments/manual-booking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(manualBooking),
@@ -346,8 +378,8 @@ const clearSearch = () => {
     
     const method = editingServiceId ? 'PUT' : 'POST';
     const url = editingServiceId 
-        ? `http://192.168.1.48:8080/api/services/${editingServiceId}` 
-        : 'http://192.168.1.48:8080/api/services';
+        ? `http://192.168.1.12:8080/api/services/${editingServiceId}` 
+        : 'http://192.168.1.12:8080/api/services';
 
     try {
         const res = await fetch(url, {
@@ -369,11 +401,85 @@ const clearSearch = () => {
     }
 };
 
+// --- HANDLER SALVARE FRIZER (CREARE / UPDATE) ---
+    const handleSaveBarber = async (e) => {
+        e.preventDefault();
+        const isUpdate = editingBarberId !== null;
+        
+        // Alegem endpoint-ul corect conform BarberControllerAPI.java
+        const url = isUpdate 
+            ? `http://192.168.1.12:8080/api/barbers/${editingBarberId}` 
+            : `http://192.168.1.12:8080/api/barbers/register`;
+        const method = isUpdate ? 'PUT' : 'POST';
+
+        // Adaptăm payload-ul în funcție de ce DTO așteaptă Java
+        let payload = {};
+        if (isUpdate) {
+            payload = {
+                id: editingBarberId,
+                firstName: barberForm.firstName,
+                lastName: barberForm.lastName,
+                email: barberForm.email,
+                isActive: barberForm.isActive,
+                role: barberForm.isAdmin ? "ROLE_ADMIN" : "ROLE_BARBER"
+            };
+        } else {
+            payload = {
+                firstName: barberForm.firstName,
+                lastName: barberForm.lastName,
+                email: barberForm.email,
+                rawPassword: barberForm.rawPassword,
+                isAdmin: barberForm.isAdmin
+            };
+        }
+
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                credentials: 'include'
+            });
+
+            if (res.ok) {
+                setIsBarberModalOpen(false);
+                setBarberForm({ firstName: '', lastName: '', email: '', rawPassword: '', isAdmin: false, isActive: true });
+                setEditingBarberId(null);
+                fetchBarbers(); // Reîncărcăm lista echipei
+                alert(isUpdate ? "✅ Profil actualizat!" : "✅ Membru nou adăugat!");
+            } else {
+                const errorData = await res.json();
+                alert("❌ Eroare: " + (errorData.message || "Date invalide."));
+            }
+        } catch (err) {
+            alert("❌ Eroare de conexiune cu serverul.");
+        }
+    };
+
+    const openEditBarber = (barber) => {
+        setEditingBarberId(barber.id);
+        setBarberForm({
+            firstName: barber.firstName,
+            lastName: barber.lastName,
+            email: barber.email,
+            rawPassword: '', // Nu permitem editarea parolei aici
+            isAdmin: barber.role === "ROLE_ADMIN",
+            isActive: barber.isActive
+        });
+        setIsBarberModalOpen(true);
+    };
+
+    const openCreateBarber = () => {
+        setEditingBarberId(null);
+        setBarberForm({ firstName: '', lastName: '', email: '', rawPassword: '', isAdmin: false, isActive: true });
+        setIsBarberModalOpen(true);
+    };
+
     // Management Servicii: Ștergere
     const handleDeleteService = async (id) => {
     if (!window.confirm("Atenție! Serviciul va fi șters definitiv din baza de date. Continui?")) return;
     try {
-        const res = await fetch(`http://192.168.1.48:8080/api/services/${id}`, {
+        const res = await fetch(`http://192.168.1.12:8080/api/services/${id}`, {
             method: 'DELETE',
             credentials: 'include'
         });
@@ -418,7 +524,7 @@ const clearSearch = () => {
         }
 
         try{
-           const res = await fetch(`http://192.168.1.48:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
+           const res = await fetch(`http://192.168.1.12:8080/dashboard/appointment/move/${event.id}?newStart=${newStart}`, {
             method: 'POST',
             credentials: 'include'
         });
@@ -847,59 +953,157 @@ const clearSearch = () => {
 )}
 
 {/* TAB 4: MANAGEMENT ECHIPĂ */}
+{/* TAB 4: MANAGEMENT ECHIPĂ */}
 {activeTab === 'team' && (
     <div className="team-management-section">
-        <h3 className="section-divider-title">👥 Management Echipă</h3>
         
-        <div className="dashboard-card glass-effect" style={{ padding: '20px' }}>
-            <div className="table-responsive">
-                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#ddd' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid #333', textAlign: 'left' }}>
-                            <th style={{ padding: '15px', color: '#d4af37' }}>Nume</th>
-                            <th style={{ padding: '15px', color: '#d4af37' }}>Status</th>
-                            <th style={{ padding: '15px', textAlign: 'right', color: '#d4af37' }}>Acțiune</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {allBarbers.map(barber => (
-                            <tr key={barber.id} style={{ borderBottom: '1px solid #222' }}>
-                                <td style={{ padding: '15px' }}>
-                                    <div style={{ fontWeight: 'bold' }}>{barber.firstName} {barber.lastName}</div>
-                                    <div style={{ fontSize: '0.8rem', color: '#666' }}>{barber.email}</div>
-                                </td>
-                                <td style={{ padding: '15px' }}>
-                                    <span style={{ 
-                                        color: barber.isActive ? '#4CAF50' : '#F44336', 
-                                        fontWeight: 'bold',
-                                        fontSize: '0.9rem'
-                                    }}>
-                                        {barber.isActive ? 'ACTIV' : 'INACTIV'}
-                                    </span>
-                                </td>
-                                <td style={{ padding: '15px', textAlign: 'right' }}>
-                                    {/* SWITCH COMPONENT */}
-                                    <label className="switch">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={barber.isActive}
-                                            onChange={() => handleToggleBarber(barber.id, barber.isActive)}
-                                        />
-                                        <span className="slider round"></span>
-                                    </label>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                
-                {allBarbers.length === 0 && (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-                        Se încarcă lista sau nu ai drepturi de admin...
-                    </div>
-                )}
-            </div>
+        {/* HEADER SECȚIUNE */}
+        <div className="section-header-modern">
+            <h3 className="section-divider-title">👥 Echipa Hype</h3>
+            
+            {/* Butonul apare DOAR dacă utilizatorul e Admin */}
+            {isAdmin && (
+                <button onClick={openCreateBarber} className="btn-saas-primary small-btn">
+                    <span>+</span> Adaugă Membru
+                </button>
+            )}
         </div>
+        
+        {/* GRID-UL CU FRIZERI (Înlocuiește tabelul) */}
+        <div className="team-grid">
+            {allBarbers.map(barber => (
+                <div key={barber.id} className="team-card glass-effect">
+                    <div className="team-card-header">
+                        {/* Avatar generat automat din inițiale */}
+                        <div className="member-avatar">
+                            {barber.firstName.charAt(0)}{barber.lastName.charAt(0)}
+                        </div>
+                        <div className="member-info">
+                            <h4>{barber.firstName} {barber.lastName}</h4>
+                            <p className="member-role">
+                                {barber.role === 'ROLE_ADMIN' ? '👑 Administrator' : '✂️ Frizer'}
+                            </p>
+                            <p className="member-email">{barber.email}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="team-card-actions">
+                        <div className="status-toggle">
+                            <label className="switch">
+                                <input 
+                                    type="checkbox" 
+                                    checked={barber.isActive}
+                                    onChange={() => handleToggleBarber(barber.id, barber.isActive)}
+                                    disabled={!isAdmin} // Frizerii normali nu pot dezactiva colegi
+                                />
+                                <span className="slider round"></span>
+                            </label>
+                            <span className={`status-badge ${barber.isActive ? 'active' : 'inactive'}`}>
+                                {barber.isActive ? 'Activ' : 'Inactiv'}
+                            </span>
+                        </div>
+                        
+                        {/* Editarea e permisă doar adminilor */}
+                        {isAdmin && (
+                            <button onClick={() => openEditBarber(barber)} className="btn-icon-modern edit">
+                                ✎ Editează
+                            </button>
+                        )}
+                    </div>
+                </div>
+            ))}
+            
+            {allBarbers.length === 0 && (
+                <div className="empty-state">
+                    Nu s-a găsit niciun membru sau se încarcă datele...
+                </div>
+            )}
+        </div>
+
+        {/* ========================================================= */}
+        {/* SLIDE-OVER PANEL PENTRU ADAUGARE / EDITARE (SaaS Style) */}
+        {/* ========================================================= */}
+        {isBarberModalOpen && (
+            <div className="slide-over-backdrop is-visible" onClick={() => setIsBarberModalOpen(false)}>
+                <div className="slide-over-panel is-open" onClick={(e) => e.stopPropagation()}>
+                    
+                    <div className="slide-over-header">
+                        <h3>{editingBarberId ? "Editează Profil" : "Adaugă Membru Nou"}</h3>
+                        <button className="btn-close-modal" onClick={() => setIsBarberModalOpen(false)}>✕</button>
+                    </div>
+
+                    <div className="slide-over-body">
+                        <form onSubmit={handleSaveBarber} className="saas-form">
+                            
+                            <div className="form-grid-2">
+                                <div className="form-group-saas">
+                                    <label>Prenume</label>
+                                    <input 
+                                        type="text" required 
+                                        placeholder="Ex: Ion"
+                                        value={barberForm.firstName}
+                                        onChange={e => setBarberForm({...barberForm, firstName: e.target.value})}
+                                    />
+                                </div>
+                                <div className="form-group-saas">
+                                    <label>Nume de familie</label>
+                                    <input 
+                                        type="text" required 
+                                        placeholder="Ex: Popescu"
+                                        value={barberForm.lastName}
+                                        onChange={e => setBarberForm({...barberForm, lastName: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="form-group-saas">
+                                <label>Email (Folosit pentru Login)</label>
+                                <input 
+                                    type="email" required 
+                                    placeholder="ion@hype.ro"
+                                    value={barberForm.email}
+                                    onChange={e => setBarberForm({...barberForm, email: e.target.value})}
+                                />
+                            </div>
+
+                            {/* Parola se cere DOAR la crearea unui cont nou. La update nu o modificăm de aici. */}
+                            {!editingBarberId && (
+                                <div className="form-group-saas">
+                                    <label>Parolă Cont</label>
+                                    <input 
+                                        type="password" required 
+                                        placeholder="Minim 6 caractere"
+                                        value={barberForm.rawPassword}
+                                        onChange={e => setBarberForm({...barberForm, rawPassword: e.target.value})}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Checkbox modern pentru rolul de Admin */}
+                            <div className="form-group-saas checkbox-group-saas" style={{ marginTop: '10px' }}>
+                                <label className="premium-checkbox-label">
+                                    <input 
+                                        type="checkbox"
+                                        checked={barberForm.isAdmin}
+                                        onChange={e => setBarberForm({...barberForm, isAdmin: e.target.checked})}
+                                    />
+                                    <span>Oferă privilegii de Administrator</span>
+                                </label>
+                                <p style={{ fontSize: '0.8rem', color: '#666', marginTop: '5px', marginLeft: '30px' }}>
+                                    Adminii pot modifica serviciile, programul și pot adăuga alți membri.
+                                </p>
+                            </div>
+
+                            <div className="slide-over-footer">
+                                <button type="submit" className="btn-saas-primary">
+                                    {editingBarberId ? "✔️ Salvează Modificările" : "+ Creează Cont"}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
 )}
 

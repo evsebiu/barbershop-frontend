@@ -23,7 +23,7 @@ const AppointmentForm = () => {
 
   useEffect(() => {
     if (barberId) {
-      fetch(`http://192.168.1.48:8080/api/barbers/${barberId}`)
+      fetch(`http://192.168.1.12:8080/api/barbers/${barberId}`)
         .then(res => res.json())
         .then(data => setBarberName(data.firstName))
         .catch(err => console.error("Eroare nume frizer:", err));
@@ -32,7 +32,7 @@ const AppointmentForm = () => {
 
   useEffect(() => {
     if (selectedDate) {
-      fetch(`http://192.168.1.48:8080/api/appointments/slots?barberId=${barberId}&serviceId=${serviceId}&date=${selectedDate}`)
+      fetch(`http://192.168.1.12:8080/api/appointments/slots?barberId=${barberId}&serviceId=${serviceId}&date=${selectedDate}`)
         .then(res => res.json())
         .then(data => setAvailableSlots(data))
         .catch(err => console.error("Eroare slots:", err));
@@ -46,7 +46,7 @@ const AppointmentForm = () => {
     const startTimeWithSeconds = formData.startTime.length === 16 ? `${formData.startTime}:00` : formData.startTime;
 
     try {
-      const response = await fetch('http://192.168.1.48:8080/api/appointments', {
+      const response = await fetch('http://192.168.1.12:8080/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

@@ -24,7 +24,7 @@ const EditAppointment = () => {
         const fetchData = async () => {
             try {
                 // 1. Încărcăm datele programării specifice
-                const appRes = await fetch(`http://192.168.1.48:8080/api/appointments/${id}`, { 
+                const appRes = await fetch(`http://192.168.1.12:8080/api/appointments/${id}`, { 
                     credentials: 'include' 
                 });
                 
@@ -32,7 +32,7 @@ const EditAppointment = () => {
                 const appData = await appRes.json();
                 
                 // 2. Încărcăm toate serviciile pentru dropdown
-                const srvRes = await fetch(`http://192.168.1.48:8080/api/services`, { 
+                const srvRes = await fetch(`http://192.168.1.12:8080/api/services`, { 
                     credentials: 'include' 
                 });
                 const srvData = await srvRes.json();
@@ -62,7 +62,7 @@ const EditAppointment = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            const res = await fetch(`http://192.168.1.48:8080/api/appointments/${id}`, {
+            const res = await fetch(`http://192.168.1.12:8080/api/appointments/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(formData),
@@ -85,7 +85,7 @@ const EditAppointment = () => {
         </div>
     );
 
-    return (
+   return (
         <div className="premium-edit-wrapper" style={{paddingTop: '60px'}}>
             
             {/* NOUL TITLU ELEGANT */}
@@ -105,7 +105,8 @@ const EditAppointment = () => {
                             required />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                    {/* ZONA MODIFICATĂ PENTRU TELEFON ȘI EMAIL */}
+                    <div className="edit-contact-grid">
                         <div className="luxury-form-group">
                             <label className="premium-label">Telefon</label>
                             <input className="premium-input" type="text" 
@@ -156,11 +157,12 @@ const EditAppointment = () => {
                         </select>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '20px', marginTop: '30px' }}>
-                        <button type="submit" className="btn-save-premium" style={{flex: 2}}>
+                    {/* ZONA MODIFICATĂ PENTRU BUTOANE */}
+                    <div className="edit-action-buttons">
+                        <button type="submit" className="btn-save-premium">
                             Actualizează Programarea
                         </button>
-                        <button type="button" onClick={() => navigate('/dashboard')} className="btn-cancel-premium" style={{flex: 1}}>
+                        <button type="button" onClick={() => navigate('/dashboard')} className="btn-cancel-premium">
                             Anulează
                         </button>
                     </div>
